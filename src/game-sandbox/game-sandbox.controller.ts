@@ -4,7 +4,9 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  Param,
   Post,
+  Req,
 } from '@nestjs/common';
 import { GameSandboxService } from './game-sandbox.service';
 
@@ -16,7 +18,7 @@ export class GameSandboxController {
   @Get()
   async getSandboxList(): Promise<any> {
     try {
-      return await this.gameSandboxService.getSandbox(this.userId);
+      return await this.gameSandboxService.getSandboxRecord(this.userId);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -34,4 +36,23 @@ export class GameSandboxController {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+
+  @Get(':id')
+  async getInfo(@Param('id') id: number,@Req() req: any): Promise<any> { 
+  //const userId = req.user.id;
+  try {
+    const sandboxes = await this.gameSandboxService.getSandboxRecord(
+      this.userId,
+      id,
+    );
+    if (!sandboxes || sandboxes.length === 0) {
+      throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
+    }
+    return sandboxes[0];
+  } catch (error) {
+    throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+  }
+  
 }

@@ -20,7 +20,7 @@ export class GameSandboxService {
     const newSandbox = this.sandboxRepository.create({ userId, name });
     return this.sandboxRepository.save(newSandbox);
   }
-  async getSandbox(userId?: number, id?: number): Promise<SandboxRecord[]> {
+  async getSandboxRecord(userId?: number, id?: number): Promise<SandboxRecord[]> {
     return this.sandboxRepository.find({ where: { id, userId } });
   }
 }

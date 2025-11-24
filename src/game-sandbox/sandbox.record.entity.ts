@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { SandboxStatus } from './sandbox.status.enum';
 
 @Entity()
 export class SandboxRecord {
@@ -10,4 +11,14 @@ export class SandboxRecord {
 
   @Column()
   name: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  @Column({
+    type: 'enum',
+    enum: SandboxStatus,
+    default: SandboxStatus.RECORD_CREATED,
+  })
+  status: SandboxStatus;
 }
