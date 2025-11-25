@@ -18,82 +18,53 @@ export class GameSandboxController {
 
   @Get()
   async getSandboxList(): Promise<any> {
-    try {
-      return await this.gameSandboxService.getSandboxRecord(this.userId);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    return await this.gameSandboxService.getSandboxRecord(this.userId);
   }
 
   @Post()
   async createSandbox(@Body('name') name: string): Promise<any> {
-    try {
-      const sandboxRecord = await this.gameSandboxService.createSandboxRecord(
-        this.userId,
-        name,
-      );
-      return sandboxRecord;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    const sandboxRecord = await this.gameSandboxService.createSandboxRecord(
+      this.userId,
+      name,
+    );
+    return sandboxRecord;
   }
 
   @Post('initialize/:id')
   async InitializeSandbox(@Param('id') id: number): Promise<any> {
-    try {
-      const sr = await this.gameSandboxService.getSandboxRecord(
-        this.userId,
-        id,
-      );
-      if (!sr) {
-        throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
-      }
-      return this.gameSandboxService.initializeSandbox(sr[0]);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    const sr = await this.gameSandboxService.getSandboxRecord(this.userId, id);
+    if (!sr) {
+      throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
     }
+    return this.gameSandboxService.initializeSandbox(sr[0]);
   }
 
   @Get(':id')
   async getInfo(@Param('id') id: number, @Req() req: any): Promise<any> {
     //const userId = req.user.id;
-    try {
-      const sandboxes = await this.gameSandboxService.getSandboxRecord(
-        this.userId,
-        id,
-      );
-      if (!sandboxes || sandboxes.length === 0) {
-        throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
-      }
-      return sandboxes[0];
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    const sandboxes = await this.gameSandboxService.getSandboxRecord(
+      this.userId,
+      id,
+    );
+    if (!sandboxes || sandboxes.length === 0) {
+      throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
     }
+    return sandboxes[0];
   }
 
   @Delete(':id')
   async deleteSandbox(@Param('id') id: number): Promise<any> {
-    try {
-      const sr = await this.gameSandboxService.getSandboxRecord(
-        this.userId,
-        id,
-      );
-      await this.gameSandboxService.deleteSandbox(sr[0]);
-      return 'Sandbox has been deleted.';
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    const sr = await this.gameSandboxService.getSandboxRecord(this.userId, id);
+    await this.gameSandboxService.deleteSandbox(sr[0]);
+    return 'Sandbox has been deleted.';
   }
 
   @Post('query/:id')
-  async runQuery(@Param('id') id: string, @Body('query') query: string): Promise<any> {
-    try {
-        const sr = await this.gameSandboxService.getSandboxRecord(
-        this.userId
-      );
-      return this.gameSandboxService.runQuery(sr[0],query)
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async runQuery(
+    @Param('id') id: string,
+    @Body('query') query: string,
+  ): Promise<any> {
+    const sr = await this.gameSandboxService.getSandboxRecord(this.userId);
+    return this.gameSandboxService.runQuery(sr[0], query);
   }
 }
