@@ -84,4 +84,16 @@ export class GameSandboxController {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Post('query/:id')
+  async runQuery(@Param('id') id: string, @Body('query') query: string): Promise<any> {
+    try {
+        const sr = await this.gameSandboxService.getSandboxRecord(
+        this.userId
+      );
+      return this.gameSandboxService.runQuery(sr[0],query)
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

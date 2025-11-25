@@ -95,5 +95,28 @@ export class GameSandboxService {
     await this.sandboxRepository.delete(sr.id);
   }
 
+  async runQuery(sr: SandboxRecord, query: string): Promise<any> {
+    const sandboxDbName = `sandbox_${sr.id}`;
 
+    const sandboxConnection = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: sandboxDbName,
+    });
+
+    try {
+      await sandboxConnection.initialize();
+      return await sandboxConnection.query(query);
+    } catch (error) {
+      console.error('Error running query in sandbox:', error);
+      return error.message;
+    } finally {
+      if (sandboxConnection.isInitialized) {
+        await sandboxConnection.destroy();
+      }
+    }
+  }
 }
