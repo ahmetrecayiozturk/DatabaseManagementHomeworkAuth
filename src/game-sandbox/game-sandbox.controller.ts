@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpStatus,
@@ -37,10 +38,13 @@ export class GameSandboxController {
     }
   }
 
-  @Post(':id/initialize')
+  @Post('initialize/:id')
   async InitializeSandbox(@Param('id') id: number): Promise<any> {
     try {
-      const sr = await this.gameSandboxService.getSandboxRecord(this.userId, id);
+      const sr = await this.gameSandboxService.getSandboxRecord(
+        this.userId,
+        id,
+      );
       if (!sr) {
         throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
       }
@@ -62,6 +66,20 @@ export class GameSandboxController {
         throw new HttpException('Sandbox not found', HttpStatus.NOT_FOUND);
       }
       return sandboxes[0];
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete(':id')
+  async deleteSandbox(@Param('id') id: number): Promise<any> {
+    try {
+      const sr = await this.gameSandboxService.getSandboxRecord(
+        this.userId,
+        id,
+      );
+      await this.gameSandboxService.deleteSandbox(sr[0]);
+      return 'Sandbox has been deleted.';
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

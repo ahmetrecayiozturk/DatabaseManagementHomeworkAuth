@@ -14,7 +14,10 @@ export class GameSandboxService {
     private sandboxRepository: Repository<SandboxRecord>,
     private configService: ConfigService,
   ) {
-    this.templateDbName= configService.get('TEMPLATE_DB_NAME', 'template_sandbox_db');
+    this.templateDbName = configService.get(
+      'TEMPLATE_DB_NAME',
+      'template_sandbox_db',
+    );
     this.ensureTemplateDbExists().catch((err) => {
       console.error('Error ensuring template database exists:', err);
     });
@@ -34,7 +37,7 @@ export class GameSandboxService {
     );
   }
 
-    async initializeSandbox(sr: SandboxRecord) {
+  async initializeSandbox(sr: SandboxRecord) {
     const sandboxDbName = `sandbox_${sr.id}`;
 
     const templateExists = await this.mainDataSource.query(`
@@ -42,7 +45,9 @@ export class GameSandboxService {
     `);
 
     if (templateExists.length === 0) {
-      throw new Error(`Template database '${this.templateDbName}' does not exist.`);
+      throw new Error(
+        `Template database '${this.templateDbName}' does not exist.`,
+      );
     }
 
     await this.mainDataSource.query(`
@@ -58,6 +63,7 @@ export class GameSandboxService {
       CREATE DATABASE ${sandboxDbName} 
       WITH TEMPLATE ${this.templateDbName} 
     `);
+    console.log("initialized sandbox " + sandboxDbName);
     this.sandboxRepository.update(sr.id, { status: SandboxStatus.INITIALIZED });
   }
 
@@ -68,8 +74,26 @@ export class GameSandboxService {
     const newSandbox = this.sandboxRepository.create({ userId, name });
     return this.sandboxRepository.save(newSandbox);
   }
-  async getSandboxRecord(userId?: number, id?: number): Promise<SandboxRecord[]> {
+  async getSandboxRecord(
+    userId?: number,
+    id?: number,
+  ): Promise<SandboxRecord[]> {
     return this.sandboxRepository.find({ where: { id, userId } });
   }
+
+  async deleteSandbox(sr: SandboxRecord): Promise<void> {
+    const sandboxDbName = `sandbox_${sr.id}`;
+
+    await this.mainDataSource.query(`
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE datname = '${sandboxDbName}'
+      AND pid <> pg_backend_pid();
+    `);
+
+    await this.mainDataSource.query(`DROP DATABASE IF EXISTS ${sandboxDbName}`);
+    await this.sandboxRepository.delete(sr.id);
+  }
+
 
 }
