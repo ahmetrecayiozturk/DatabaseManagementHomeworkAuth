@@ -21,4 +21,10 @@ export class SandboxRecord {
     default: SandboxStatus.RECORD_CREATED,
   })
   status: SandboxStatus;
+
+  @Column({ nullable: true })
+  dbUsername: string;
+
+  @Column({ nullable: true })
+  dbPassword: string;
 }

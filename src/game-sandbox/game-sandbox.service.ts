@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { SandboxRecord } from './sandbox.record.entity';
 import { ConfigService } from '@nestjs/config';
 import { SandboxStatus } from './sandbox.status.enum';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class GameSandboxService {
@@ -39,6 +40,8 @@ export class GameSandboxService {
 
   async initializeSandbox(sr: SandboxRecord) {
     const sandboxDbName = `sandbox_${sr.id}`;
+    const dbUser = `db_user_${sr.id}`;
+    const dbPass = crypto.randomBytes(16).toString('hex');
 
     const templateExists = await this.mainDataSource.query(`
       SELECT 1 FROM pg_database WHERE datname = '${this.templateDbName}'
@@ -58,13 +61,26 @@ export class GameSandboxService {
     `);
 
     await this.mainDataSource.query(`DROP DATABASE IF EXISTS ${sandboxDbName}`);
+    await this.mainDataSource.query(`DROP USER IF EXISTS "${dbUser}"`);
 
     await this.mainDataSource.query(`
       CREATE DATABASE ${sandboxDbName} 
       WITH TEMPLATE ${this.templateDbName} 
     `);
-    console.log("initialized sandbox " + sandboxDbName);
-    this.sandboxRepository.update(sr.id, { status: SandboxStatus.INITIALIZED });
+
+    await this.mainDataSource.query(
+      `CREATE USER "${dbUser}" WITH PASSWORD '${dbPass}'`,
+    );
+    await this.mainDataSource.query(
+      `ALTER DATABASE ${sandboxDbName} OWNER TO "${dbUser}"`,
+    );
+
+    console.log('initialized sandbox ' + sandboxDbName);
+    this.sandboxRepository.update(sr.id, {
+      status: SandboxStatus.INITIALIZED,
+      dbUsername: dbUser,
+      dbPassword: dbPass,
+    });
   }
 
   async createSandboxRecord(
@@ -83,6 +99,7 @@ export class GameSandboxService {
 
   async deleteSandbox(sr: SandboxRecord): Promise<void> {
     const sandboxDbName = `sandbox_${sr.id}`;
+    const dbUser = `db_user_${sr.id}`;
 
     await this.mainDataSource.query(`
       SELECT pg_terminate_backend(pid)
@@ -92,18 +109,22 @@ export class GameSandboxService {
     `);
 
     await this.mainDataSource.query(`DROP DATABASE IF EXISTS ${sandboxDbName}`);
+    await this.mainDataSource.query(`DROP USER IF EXISTS "${dbUser}"`);
     await this.sandboxRepository.delete(sr.id);
   }
 
   async runQuery(sr: SandboxRecord, query: string): Promise<any> {
+    if (!sr.dbUsername || !sr.dbPassword) {
+      throw new Error('Sandbox not initialized');
+    }
     const sandboxDbName = `sandbox_${sr.id}`;
 
     const sandboxConnection = new DataSource({
       type: 'postgres',
       host: process.env.DB_HOST,
       port: parseInt(process.env.DB_PORT),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
+      username: sr.dbUsername,
+      password: sr.dbPassword,
       database: sandboxDbName,
     });
 
