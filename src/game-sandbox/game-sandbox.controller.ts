@@ -10,6 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { GameSandboxService } from './game-sandbox.service';
+import { SandboxRecordMapper } from './sandbox-record.mapper';
 
 @Controller('game-sandbox')
 export class GameSandboxController {
@@ -18,7 +19,7 @@ export class GameSandboxController {
 
   @Get()
   async getSandboxList(): Promise<any> {
-    return await this.gameSandboxService.getSandboxRecord(this.userId);
+    return (await this.gameSandboxService.getSandboxRecord(this.userId)).map(SandboxRecordMapper.toDTO);
   }
 
   @Post()
@@ -27,7 +28,7 @@ export class GameSandboxController {
       this.userId,
       name,
     );
-    return sandboxRecord;
+    return SandboxRecordMapper.toDTO(sandboxRecord);
   }
 
   @Post('initialize/:id')
