@@ -5,6 +5,8 @@ import { SandboxRecord } from './sandbox.record.entity';
 import { ConfigService } from '@nestjs/config';
 import { SandboxStatus } from './sandbox.status.enum';
 import * as crypto from 'crypto';
+import { QueryResultDto } from './query-result.dto';
+import { QueryResultMapper } from './query-result.mapper';
 
 @Injectable()
 export class GameSandboxService {
@@ -113,7 +115,7 @@ export class GameSandboxService {
     await this.sandboxRepository.delete(sr.id);
   }
 
-  async runQuery(sr: SandboxRecord, query: string): Promise<any> {
+  async runQuery(sr: SandboxRecord, query: string): Promise<QueryResultDto> {
     if (!sr.dbUsername || !sr.dbPassword) {
       throw new Error('Sandbox not initialized');
     }
@@ -128,16 +130,22 @@ export class GameSandboxService {
       database: sandboxDbName,
     });
 
+    let result;
+    let error;
+    const start = Date.now();
+
     try {
       await sandboxConnection.initialize();
-      return await sandboxConnection.query(query);
-    } catch (error) {
-      console.error('Error running query in sandbox:', error);
-      return error.message;
+      result = await sandboxConnection.query(query);
+    } catch (err) {
+      console.error('Error running query in sandbox:', err);
+      error = err;
     } finally {
       if (sandboxConnection.isInitialized) {
         await sandboxConnection.destroy();
       }
+      const executionTime = Date.now() - start;
+      return QueryResultMapper.toDTO(result, error, executionTime);
     }
   }
 }
