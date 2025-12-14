@@ -4,6 +4,9 @@ import { AppService } from './app.service';
 import { GameSandboxModule } from './game-sandbox/game-sandbox.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TasksService } from './tasks/tasks.service';
+import { TasksController } from './tasks/tasks.controller';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -25,8 +28,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         logging: configService.get('DB_LOGGING', 'false') === 'true',
       }),
     }),
-    GameSandboxModule],
-  controllers: [AppController],
-  providers: [AppService],
+    GameSandboxModule,
+    TasksModule],
+  controllers: [AppController, TasksController],
+  providers: [AppService, TasksService],
 })
 export class AppModule {}
