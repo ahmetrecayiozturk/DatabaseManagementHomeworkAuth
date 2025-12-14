@@ -15,7 +15,7 @@ import { GameMapper } from './game.mapper';
 export class GameController {
   userId: number = 1;
   constructor(private readonly gameService: GameService) {}
-  
+
   @Get()
   async get(): Promise<any> {
     return (await this.gameService.getGames(this.userId)).map(GameMapper.toDTO);
@@ -23,25 +23,31 @@ export class GameController {
 
   @Post()
   async createGame(@Body('name') name: string): Promise<any> {
-    const gameRecord = await this.gameService.createGame(
-      this.userId,
-      name,
-    );
+    const gameRecord = await this.gameService.createGame(this.userId, name);
     return GameMapper.toDTO(gameRecord);
   }
 
   @Get(':id')
   async getInfo(@Param('id') id: number, @Req() req: any): Promise<any> {
     //const userId = req.user.id;
-    const games = await this.gameService.getGames(
-      this.userId,
-      id,
-    );
+    const games = await this.gameService.getGames(this.userId, id);
     if (!games || games.length === 0) {
       throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
     }
     //add more specific game info
     return GameMapper.toDTO(games[0]);
+  }
+
+  @Post(':id/init')
+  async initialize(@Param('id') id: number): Promise<any> {
+    const games = await this.gameService.getGames(this.userId, id);
+    if (!games || games.length === 0) {
+      throw new HttpException('Game not found', HttpStatus.NOT_FOUND);
+    }
+    let game = games[0];
+    await this.gameService.initialize(game);
+    game = await this.gameService.saveGame(game);
+    return GameMapper.toDTO(game);
   }
 
   @Delete(':id')

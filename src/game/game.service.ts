@@ -6,40 +6,42 @@ import { SandboxService } from 'src/sandbox/sandbox.service';
 
 @Injectable()
 export class GameService {
+  constructor(
+    @InjectDataSource() private mainDataSource: DataSource,
+    @InjectRepository(Game)
+    private gameRepository: Repository<Game>,
+    private sandboxService: SandboxService,
+  ) {}
 
-    constructor(
-            @InjectDataSource() private mainDataSource: DataSource,
-            @InjectRepository(Game)
-            private gameRepository: Repository<Game>,
-            private sandboxService: SandboxService,
-    ) {}
+  async getGames(userId?: number, id?: number): Promise<Game[]> {
+    return this.gameRepository.find({ where: { id, userId } });
+  }
+  async createGame(userId: number, name: string): Promise<Game> {
+    const newGame = this.gameRepository.create({
+      userId,
+      name,
+    });
+    return this.gameRepository.save(newGame);
+  }
 
-      async getGames(
-        userId?: number,
-        id?: number,
-      ): Promise<Game[]> {
-        return this.gameRepository.find({ where: { id, userId } });
-      }
-        async createGame(
-        userId: number,
-        name: string,
-      ): Promise<Game> {
-        const newGame = this.gameRepository.create({
-          userId,
-          name,
-        });
-        return this.gameRepository.save(newGame);
-      }
+  async initialize(game: Game): Promise<void> {
+    const sr = await this.sandboxService.createSandboxRecord(game.id);
+    await this.sandboxService.initializeSandbox(sr);
 
-        async deleteGame(game: Game): Promise<void> {
-        await this.gameRepository.remove(game);
-        }
+    game.isInitialized = true;
+    await this.gameRepository.save(game);
+  }
 
-        async runQuery(game: Game, query: string): Promise<any> {
-            
-        const sr = await this.sandboxService.getSandboxRecord(game.id);
-        return this.sandboxService.runQuery(sr[0], query);
-      }
+  async saveGame(game: Game): Promise<Game> {
+    return this.gameRepository.save(game);
+  }
+
+  async deleteGame(game: Game): Promise<void> {
+    await this.gameRepository.remove(game);
+  }
+
+  async runQuery(game: Game, query: string): Promise<any> {
+    const sr = await this.sandboxService.getSandboxRecord(game.id);
+    return this.sandboxService.runQuery(sr[0], query);
+  }
 }
-
-

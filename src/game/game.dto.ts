@@ -4,4 +4,5 @@ export class GameDto {
     userId: number;
     name: string
     createdAt: Date;
+    isInitialized: boolean;
 }
