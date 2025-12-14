@@ -19,13 +19,22 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
-  async create(username: string, plainPassword: string, role: 'admin' | 'user' = 'user'): Promise<User> {
+  async create(
+    username: string,
+    plainPassword: string,
+    role: 'admin' | 'user' = 'user',
+  ): Promise<User> {
     const saltRounds = 10;
     const hashed = await bcrypt.hash(plainPassword, saltRounds);
-    const user = this.usersRepository.create({ username, password: hashed, role });
+    const user = this.usersRepository.create({
+      username,
+      password: hashed,
+      role,
+    });
     const saved = await this.usersRepository.save(user);
-    // şifreyi dışarıya döndürme
-    const { password, ...result } = saved;
+    // don't return password to outside
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _password, ...result } = saved;
     return result as User;
   }
 

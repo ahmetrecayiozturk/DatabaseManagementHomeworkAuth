@@ -29,7 +29,11 @@ export class AuthService {
     };
   }
 
-  async register(username: string, plainPassword: string, role: 'admin' | 'user' = 'user') {
+  async register(
+    username: string,
+    plainPassword: string,
+    role: 'admin' | 'user' = 'user',
+  ) {
     const existing = await this.usersService.findOne(username);
     if (existing) {
       throw new UnauthorizedException('User already exists');

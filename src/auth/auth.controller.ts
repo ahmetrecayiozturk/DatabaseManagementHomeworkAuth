@@ -9,30 +9,35 @@ import {
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { Roles } from './roles.decorator';
-import { RolesGuard } from './roles.guard';
+import { CheckRole } from './decorators/check-role.decorator';
+import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Request() req: any) {
     return this.authService.login(req.user);
   }
 
+  @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    const user = await this.authService.register(dto.username, dto.password, dto.role ?? 'user');
+    const user = await this.authService.register(
+      dto.username,
+      dto.password,
+      dto.role ?? 'user',
+    );
     return { message: 'User created', user };
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @CheckRole('admin')
   @Get('profile')
-  getProfile(@Request() req: any) {
-    return req.user;
+  getProfile(@CurrentUser() user: any) {
+    return user;
   }
 }
