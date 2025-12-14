@@ -7,6 +7,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TasksService } from './tasks/tasks.service';
 import { TasksController } from './tasks/tasks.controller';
 import { TasksModule } from './tasks/tasks.module';
+import { CreatorModule } from './creator/creator.module';
+import { CreatorController } from './creator/creator.controller';
+import { CreatorService } from './creator/creator.service';
 
 @Module({
   imports: [
@@ -29,8 +32,9 @@ import { TasksModule } from './tasks/tasks.module';
       }),
     }),
     GameSandboxModule,
-    TasksModule],
-  controllers: [AppController, TasksController],
-  providers: [AppService, TasksService],
+    TasksModule,
+    CreatorModule],
+  controllers: [AppController, TasksController,CreatorController],
+  providers: [AppService, TasksService,CreatorService],
 })
 export class AppModule {}
