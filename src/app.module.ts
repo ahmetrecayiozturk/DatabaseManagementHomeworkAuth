@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { GameSandboxModule } from './game-sandbox/game-sandbox.module';
+import { SandboxModule } from './sandbox/sandbox.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { TasksService } from './tasks/tasks.service';
-import { TasksController } from './tasks/tasks.controller';
 import { TasksModule } from './tasks/tasks.module';
 import { CreatorModule } from './creator/creator.module';
-import { CreatorController } from './creator/creator.controller';
-import { CreatorService } from './creator/creator.service';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -31,10 +28,11 @@ import { CreatorService } from './creator/creator.service';
         logging: configService.get('DB_LOGGING', 'false') === 'true',
       }),
     }),
-    GameSandboxModule,
+    SandboxModule,
     TasksModule,
-    CreatorModule],
-  controllers: [AppController, TasksController,CreatorController],
-  providers: [AppService, TasksService,CreatorService],
+    CreatorModule,
+    GameModule],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

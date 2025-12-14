@@ -1,20 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { SandboxRecord } from './sandbox.record.entity';
+import { Sandbox } from './sandbox.entity';
 import { ConfigService } from '@nestjs/config';
-import { SandboxStatus } from './sandbox.status.enum';
 import * as crypto from 'crypto';
 import { QueryResultDto } from './query-result.dto';
 import { QueryResultMapper } from './query-result.mapper';
 
 @Injectable()
-export class GameSandboxService {
+export class SandboxService {
   templateDbName: string;
   constructor(
     @InjectDataSource() private mainDataSource: DataSource,
-    @InjectRepository(SandboxRecord)
-    private sandboxRepository: Repository<SandboxRecord>,
+    @InjectRepository(Sandbox)
+    private sandboxRepository: Repository<Sandbox>,
     private configService: ConfigService,
   ) {
     this.templateDbName = configService.get(
@@ -40,7 +39,7 @@ export class GameSandboxService {
     );
   }
 
-  async initializeSandbox(sr: SandboxRecord) {
+  async initializeSandbox(sr: Sandbox) {
     const sandboxDbName = `sandbox_${sr.id}`;
     const dbUser = `db_user_${sr.id}`;
     const dbPass = crypto.randomBytes(16).toString('hex');
@@ -79,27 +78,25 @@ export class GameSandboxService {
 
     console.log('initialized sandbox ' + sandboxDbName);
     this.sandboxRepository.update(sr.id, {
-      status: SandboxStatus.INITIALIZED,
       dbUsername: dbUser,
       dbPassword: dbPass,
     });
   }
 
   async createSandboxRecord(
-    userId: number,
-    name: string,
-  ): Promise<SandboxRecord> {
-    const newSandbox = this.sandboxRepository.create({ userId, name });
+    gameId: number,
+  ): Promise<Sandbox> {
+    const newSandbox = this.sandboxRepository.create({ gameId });
     return this.sandboxRepository.save(newSandbox);
   }
   async getSandboxRecord(
-    userId?: number,
+    gameId?: number,
     id?: number,
-  ): Promise<SandboxRecord[]> {
-    return this.sandboxRepository.find({ where: { id, userId } });
+  ): Promise<Sandbox[]> {
+    return this.sandboxRepository.find({ where: { id, gameId } });
   }
 
-  async deleteSandbox(sr: SandboxRecord): Promise<void> {
+  async deleteSandbox(sr: Sandbox): Promise<void> {
     const sandboxDbName = `sandbox_${sr.id}`;
     const dbUser = `db_user_${sr.id}`;
 
@@ -115,7 +112,7 @@ export class GameSandboxService {
     await this.sandboxRepository.delete(sr.id);
   }
 
-  async runQuery(sr: SandboxRecord, query: string): Promise<QueryResultDto> {
+  async runQuery(sr: Sandbox, query: string): Promise<QueryResultDto> {
     if (!sr.dbUsername || !sr.dbPassword) {
       throw new Error('Sandbox not initialized');
     }
