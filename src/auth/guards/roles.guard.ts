@@ -51,6 +51,15 @@ export class RolesGuard implements CanActivate {
         role: payload.role,
       };
 
+      // ✨ Session'a da kullanıcı bilgilerini kaydet (token'dan)
+      const session = request.session;
+      if (session && !session.userId) {
+        session.userId = payload.sub;
+        session.username = payload.username;
+        session.role = payload.role;
+        session.lastActivity = new Date();
+      }
+
       if (!requiredRoles || requiredRoles.length === 0) {
         return true;
       }

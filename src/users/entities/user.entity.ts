@@ -10,7 +10,7 @@ export class User {
 
   @Column()
   password: string; // hashed password
-  
+
   @Column({ default: 'user' })
   role: 'admin' | 'user';
 }

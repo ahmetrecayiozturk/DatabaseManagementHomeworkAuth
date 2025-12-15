@@ -22,10 +22,62 @@ export class AuthService {
     return null;
   }
 
-  async login(user: any) {
+  // ✨ Session parametresi eklendi
+  async login(user: any, session?: any) {
     const payload = { username: user.username, sub: user.id, role: user.role };
+
+    // ✨ Session'a kullanıcı bilgilerini kaydet
+    if (session) {
+      session.userId = user.id;
+      session.username = user.username;
+      session.role = user.role;
+      session.loginTime = new Date();
+      session.lastActivity = new Date();
+    }
+
     return {
       access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+    };
+  }
+
+  // ✨ YENİ:  Logout methodu
+  async logout(session: any): Promise<{ message: string }> {
+    return new Promise((resolve, reject) => {
+      session.destroy((err: any) => {
+        if (err) {
+          reject(new UnauthorizedException('Çıkış yapılırken bir hata oluştu'));
+        } else {
+          resolve({ message: 'Başarıyla çıkış yapıldı' });
+        }
+      });
+    });
+  }
+
+  // ✨ YENİ: Session doğrulama
+  async validateSession(session: any) {
+    if (!session || !session.userId) {
+      throw new UnauthorizedException('Geçerli bir session bulunamadı');
+    }
+
+    const user = await this.usersService.findById(session.userId);
+    if (!user) {
+      throw new UnauthorizedException('Kullanıcı bulunamadı');
+    }
+
+    // Son aktivite zamanını güncelle
+    session.lastActivity = new Date();
+
+    return {
+      userId: session.userId,
+      username: session.username,
+      role: session.role,
+      loginTime: session.loginTime,
+      lastActivity: session.lastActivity,
     };
   }
 

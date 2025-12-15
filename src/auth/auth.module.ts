@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
 import { LocalStrategy } from './local.strategy';
 import { AuthController } from './auth.controller';
+import { SessionGuard } from './guards/session.guard'; // ✨ YENİ
 
 @Module({
   imports: [
@@ -16,8 +17,12 @@ import { AuthController } from './auth.controller';
       signOptions: { expiresIn: '60m' },
     }),
   ],
-  providers: [AuthService, LocalStrategy],
+  providers: [
+    AuthService,
+    LocalStrategy,
+    SessionGuard, // ✨ YENİ - SessionGuard'ı provider olarak ekle
+  ],
   controllers: [AuthController],
-  exports: [JwtModule], // Required for global guard
+  exports: [JwtModule, SessionGuard], // ✨ SessionGuard'ı export et
 })
 export class AuthModule {}

@@ -13,7 +13,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: '',
-      port: 1,
+      port: 5432,
       username: '',
       password: '',
       database: '',
