@@ -38,6 +38,8 @@ export class GameService {
 
   async deleteGame(game: Game): Promise<void> {
     await this.gameRepository.remove(game);
+    let sr = await this.sandboxService.getSandboxRecord(game.id);
+    await this.sandboxService.deleteSandbox(sr[0]);
   }
 
   async runQuery(game: Game, query: string): Promise<any> {
