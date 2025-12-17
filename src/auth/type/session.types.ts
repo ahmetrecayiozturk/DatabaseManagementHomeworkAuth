@@ -1,6 +1,5 @@
 import 'express-session';
 
-//Sessiona farklı özellikler ekleneilir
 declare module 'express-session' {
   interface SessionData {
     userId: number;

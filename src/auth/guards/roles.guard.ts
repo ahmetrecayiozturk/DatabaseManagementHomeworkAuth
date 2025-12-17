@@ -37,7 +37,7 @@ export class RolesGuard implements CanActivate {
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      throw new UnauthorizedException('Authorization token bulunamadı');
+      throw new UnauthorizedException('Authorization token not found');
     }
 
     try {
@@ -45,18 +45,33 @@ export class RolesGuard implements CanActivate {
         secret: jwtConstants.secret,
       });
 
+      // ✅ Session bilgilerini de request. user'a ekle
       request.user = {
         id: payload.sub,
         username: payload.username,
         role: payload.role,
+        sessionId: payload.sessionId,
+        loginTime: payload.loginTime,
+        lastActivity: payload.lastActivity,
       };
 
-      // ✨ Session'a da kullanıcı bilgilerini kaydet (token'dan)
+      // ✨ Save user information from token to session
       const session = request.session;
       if (session && !session.userId) {
         session.userId = payload.sub;
         session.username = payload.username;
         session.role = payload.role;
+        session.sessionId = payload.sessionId;
+        if (payload.loginTime) {
+          session.loginTime = new Date(payload.loginTime);
+        } else {
+          session.loginTime = new Date();
+        }
+        session.lastActivity = new Date();
+      }
+
+      // ✅ Mevcut session varsa lastActivity'yi güncelle
+      if (session && session.userId) {
         session.lastActivity = new Date();
       }
 
@@ -68,7 +83,7 @@ export class RolesGuard implements CanActivate {
 
       if (!requiredRoles.includes(userRole)) {
         throw new ForbiddenException(
-          `Bu işlem için ${requiredRoles.join(' veya ')} rolü gerekli.  Sizin rolünüz: ${userRole}`,
+          `This operation requires ${requiredRoles.join(' or ')} role. Your role: ${userRole}`,
         );
       }
 
@@ -77,7 +92,7 @@ export class RolesGuard implements CanActivate {
       if (error instanceof ForbiddenException) {
         throw error;
       }
-      throw new UnauthorizedException('Geçersiz veya süresi dolmuş token');
+      throw new UnauthorizedException('Invalid or expired token');
     }
   }
 
