@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { QueryResultDto } from './query-result.dto';
 import { QueryResultMapper } from './query-result.mapper';
+import { TableDto } from './table.dto';
 
 @Injectable()
 export class SandboxService {
@@ -83,16 +84,11 @@ export class SandboxService {
     });
   }
 
-  async createSandboxRecord(
-    gameId: number,
-  ): Promise<Sandbox> {
+  async createSandboxRecord(gameId: number): Promise<Sandbox> {
     const newSandbox = this.sandboxRepository.create({ gameId });
     return this.sandboxRepository.save(newSandbox);
   }
-  async getSandboxRecord(
-    gameId?: number,
-    id?: number,
-  ): Promise<Sandbox[]> {
+  async getSandboxRecord(gameId?: number, id?: number): Promise<Sandbox[]> {
     return this.sandboxRepository.find({ where: { id, gameId } });
   }
 
@@ -143,6 +139,50 @@ export class SandboxService {
       }
       const executionTime = Date.now() - start;
       return QueryResultMapper.toDTO(result, error, executionTime);
+    }
+  }
+
+  async getTablesFromTemplate(): Promise<TableDto[]> {
+    const tempClient = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      username: this.configService.get('DB_USERNAME'),
+      password: this.configService.get('DB_PASSWORD'),
+      database: this.templateDbName,
+    });
+
+    try {
+      await tempClient.initialize();
+
+      const rows = await tempClient.query(`
+      SELECT table_name, column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name, ordinal_position;
+    ` );
+
+      const tablesMap: Record<string, string[]> = {};
+
+      rows.forEach((row) => {
+        if (!tablesMap[row.table_name]) {
+          tablesMap[row.table_name] = [];
+        }
+        tablesMap[row.table_name].push(row.column_name);
+      });
+      const result: TableDto[] = Object.keys(tablesMap).map((tableName) => {
+        return new TableDto(tableName, tablesMap[tableName]);
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Schema fetch error:', error);
+      return [];
+    }
+    finally {      
+      if (tempClient.isInitialized) {
+        await tempClient.destroy();
+      }
     }
   }
 }
