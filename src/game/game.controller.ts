@@ -46,7 +46,6 @@ export class GameController {
     }
     let game = games[0];
     await this.gameService.initialize(game);
-    game = await this.gameService.saveGame(game);
     return GameMapper.toDTO(game);
   }
 

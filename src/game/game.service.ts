@@ -32,9 +32,7 @@ export class GameService {
     await this.gameRepository.save(game);
   }
 
-  async saveGame(game: Game): Promise<Game> {
-    return this.gameRepository.save(game);
-  }
+
 
   async deleteGame(game: Game): Promise<void> {
     await this.gameRepository.remove(game);
