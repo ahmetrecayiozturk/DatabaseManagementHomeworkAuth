@@ -6,16 +6,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import { ROLES_KEY } from '../decorators/check-role.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { jwtConstants } from '../constants';
+import { SessionStore } from '../session.store';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private jwtService: JwtService,
+    private sessionStore: SessionStore,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -34,74 +33,48 @@ export class RolesGuard implements CanActivate {
     );
 
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromHeader(request);
 
-    if (!token) {
-      throw new UnauthorizedException('Authorization token not found');
+    const sessionId =
+      request.cookies?.sessionId || request.headers['x-session-id'];
+
+    if (!sessionId) {
+      throw new UnauthorizedException('Session ID not found');
     }
 
-    try {
-      const payload = this.jwtService.verify(token, {
-        secret: jwtConstants.secret,
-      });
+    const session = this.sessionStore.get(sessionId);
 
-      // ✅ Session bilgilerini de request. user'a ekle
-      request.user = {
-        id: payload.sub,
-        username: payload.username,
-        role: payload.role,
-        sessionId: payload.sessionId,
-        loginTime: payload.loginTime,
-        lastActivity: payload.lastActivity,
-      };
+    if (!session) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
 
-      // ✨ Save user information from token to session
-      const session = request.session;
-      if (session && !session.userId) {
-        session.userId = payload.sub;
-        session.username = payload.username;
-        session.role = payload.role;
-        session.sessionId = payload.sessionId;
-        if (payload.loginTime) {
-          session.loginTime = new Date(payload.loginTime);
-        } else {
-          session.loginTime = new Date();
-        }
-        session.lastActivity = new Date();
-      }
+    const thirtyMinutes = 30 * 60 * 1000;
+    const now = Date.now();
+    const lastActivity = session.lastActivity.getTime();
 
-      // ✅ Mevcut session varsa lastActivity'yi güncelle
-      if (session && session.userId) {
-        session.lastActivity = new Date();
-      }
+    if (now - lastActivity > thirtyMinutes) {
+      this.sessionStore.delete(sessionId);
+      throw new UnauthorizedException('Session expired');
+    }
 
-      if (!requiredRoles || requiredRoles.length === 0) {
-        return true;
-      }
+    this.sessionStore.updateActivity(sessionId);
 
-      const userRole = payload.role;
+    request.user = {
+      userId: session.userId,
+      username: session.username,
+      role: session.role,
+      sessionId: session.sessionId,
+    };
 
-      if (!requiredRoles.includes(userRole)) {
-        throw new ForbiddenException(
-          `This operation requires ${requiredRoles.join(' or ')} role. Your role: ${userRole}`,
-        );
-      }
-
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
-        throw error;
-      }
-      throw new UnauthorizedException('Invalid or expired token');
     }
-  }
 
-  private extractTokenFromHeader(request: any): string | undefined {
-    const authHeader = request.headers.authorization;
-    if (!authHeader) {
-      return undefined;
+    if (!requiredRoles.includes(session.role)) {
+      throw new ForbiddenException(
+        `This operation requires ${requiredRoles.join(' or ')} role. Your role:  ${session.role}`,
+      );
     }
-    const [type, token] = authHeader.split(' ');
-    return type === 'Bearer' ? token : undefined;
+
+    return true;
   }
 }

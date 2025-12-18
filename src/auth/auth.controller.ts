@@ -1,120 +1,138 @@
 import {
   Controller,
   Post,
-  UseGuards,
-  Request,
-  Body,
   Get,
-  Session,
   Delete,
+  Body,
+  Req,
+  Res,
   Param,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
-import { CheckRole } from './decorators/check-role.decorator';
+import { LoginDto } from './dto/login.dto';
 import { Public } from './decorators/public.decorator';
+import { CheckRole } from './decorators/check-role.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { SessionGuard } from './guards/session.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
-  @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(
-    @Request() req: any,
-    //Session recordu
-    @Session() session: Record<string, any>, // ✨ Session eklendi
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.login(req.user, session); // ✨ Session parametresi eklendi
+    const user = await this.authService.validateUser(
+      dto.username,
+      dto.password,
+    );
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+
+    const result = await this.authService.login(user, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.cookie('sessionId', result.sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 3600000,
+    });
+
+    return result;
   }
 
   @Public()
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.authService.register(
       dto.username,
       dto.password,
-      dto.role ?? 'user',
+      dto.role,
     );
-    return { message: 'User created', ...result };
+
+    res.cookie('sessionId', result.sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 3600000,
+    });
+
+    return result;
   }
 
-  // ✨ Logout endpoint
   @Post('logout')
-  @UseGuards(SessionGuard)
-  async logout(@Session() session: Record<string, any>) {
-    return this.authService.logout(session);
+  async logout(
+    @CurrentUser() user: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.logout(user.sessionId);
+    res.clearCookie('sessionId');
+    return result;
   }
 
-  // ✨ Session bilgilerini getir
   @Get('session')
-  @UseGuards(SessionGuard)
-  async getSession(@Session() session: Record<string, any>) {
-    return this.authService.validateSession(session);
+  getSession(@CurrentUser() user: any) {
+    return this.authService.getSession(user.sessionId);
   }
 
-  // ✨ User ID ile session getir
+  @Get('sessions')
+  getMySessions(@CurrentUser() user: any) {
+    return this.authService.getUserSessions(user.userId);
+  }
+
+  @Delete('sessions/all')
+  logoutAllDevices(@CurrentUser() user: any) {
+    return this.authService.logoutAllDevices(user.userId);
+  }
+
+  @Delete('sessions/: sessionId')
+  @CheckRole('admin', 'user')
+  logoutSession(@Param('sessionId') sessionId: string) {
+    return this.authService.logoutSession(sessionId);
+  }
+
+  @Get('admin/sessions')
+  @CheckRole('admin')
+  getAllSessions() {
+    return this.authService.getAllSessions();
+  }
+
+  @Get('profile')
+  @CheckRole('admin', 'user')
+  getProfile(@CurrentUser() user: any) {
+    return {
+      message: 'Profile data',
+      user,
+    };
+  }
+
   @Post('get-session-by-user-id')
   @CheckRole('admin', 'user')
   async getSessionByUserId(@Body('userId') userId: number) {
     return this.authService.getSessionByUserId(userId);
   }
 
-  // ✅ YENİ:  Kullanıcının tüm aktif session'larını listele
-  @Get('sessions')
-  @CheckRole('user', 'admin')
-  async getMySessions(@CurrentUser() user: any) {
-    return this.authService.getSessionsByUserId(user.id);
-  }
-
-  // ✅ YENİ: Admin - Belirli kullanıcının session'larını getir
   @Get('sessions/user/:userId')
   @CheckRole('admin')
   async getUserSessions(@Param('userId') userId: string) {
     return this.authService.getSessionsByUserId(Number(userId));
   }
 
-  // ✅ YENİ:  Belirli bir session'ı sonlandır
-  @Delete('sessions/:sessionId')
-  @CheckRole('user', 'admin')
-  async logoutSession(@Param('sessionId') sessionId: string) {
-    return this.authService.logoutSession(sessionId);
-  }
-
-  // ✅ YENİ: Tüm cihazlardan çıkış yap
-  @Delete('sessions/all')
-  @CheckRole('user', 'admin')
-  async logoutAllDevices(@CurrentUser() user: any) {
-    return this.authService.logoutAllSessions(user.id);
-  }
-
-  // ✅ YENİ: Admin - Belirli kullanıcının tüm session'larını sonlandır
   @Delete('sessions/user/:userId/all')
   @CheckRole('admin')
   async adminLogoutUserAllSessions(@Param('userId') userId: string) {
     return this.authService.logoutAllSessions(Number(userId));
-  }
-
-  @CheckRole('admin')
-  @Get('profile')
-  getProfile(
-    @CurrentUser() user: any,
-    @Session() session: Record<string, any>, // ✨ Session eklendi
-  ) {
-    return {
-      jwtUser: user, // JWT'den gelen bilgi
-      sessionUser: {
-        // ✨ Session'dan gelen bilgi
-        userId: session.userId,
-        username: session.username,
-        role: session.role,
-        loginTime: session.loginTime,
-        lastActivity: session.lastActivity,
-      },
-    };
   }
 }

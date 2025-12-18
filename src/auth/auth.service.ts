@@ -1,13 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { JwtService } from '@nestjs/jwt';
+import { SessionStore } from './session.store';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService,
+    private sessionStore: SessionStore,
   ) {}
 
   async validateUser(username: string, pass: string) {
@@ -22,47 +22,36 @@ export class AuthService {
     return null;
   }
 
-  // ✨ Login - Session parametresi eklendi
-  async login(user: any, session?: any) {
-    const loginTime = new Date();
-    const sessionId = session?.id || this.generateSessionId();
-
-    // 🎯 JWT CLAIMS - Session bilgileri eklendi
-    const payload = {
-      username: user.username,
-      sub: user.id,
-      role: user.role,
-      sessionId: sessionId,
-      loginTime: loginTime.toISOString(),
-      lastActivity: loginTime.toISOString(),
-    };
-
-    // ✨ Session'a kullanıcı bilgilerini kaydet
-    if (session) {
-      session.userId = user.id;
-      session.username = user.username;
-      session.role = user.role;
-      session.sessionId = sessionId;
-      session.loginTime = loginTime;
-      session.lastActivity = loginTime;
-    }
+  async login(user: any, metadata?: any) {
+    const sessionId = this.sessionStore.create(
+      user.id,
+      user.username,
+      user.role,
+      metadata,
+    );
 
     return {
-      access_token: this.jwtService.sign(payload),
+      sessionId,
       user: {
         id: user.id,
         username: user.username,
         role: user.role,
-        sessionId: sessionId,
-        loginTime: loginTime,
       },
+      message: 'Login successful',
     };
   }
 
-  // ✨ Register
+  async logout(sessionId: string) {
+    const deleted = this.sessionStore.delete(sessionId);
+    if (!deleted) {
+      throw new UnauthorizedException('Session not found');
+    }
+    return { message: 'Logged out successfully' };
+  }
+
   async register(
     username: string,
-    plainPassword: string,
+    password: string,
     role: 'admin' | 'user' = 'user',
   ) {
     const existing = await this.usersService.findOne(username);
@@ -70,146 +59,81 @@ export class AuthService {
       throw new UnauthorizedException('User already exists');
     }
 
-    const newUser = await this.usersService.create(
-      username,
-      plainPassword,
-      role,
+    const newUser = await this.usersService.create(username, password, role);
+
+    const sessionId = this.sessionStore.create(
+      newUser.id,
+      newUser.username,
+      newUser.role,
     );
 
-    const loginTime = new Date();
-    const sessionId = this.generateSessionId();
-
-    // 🎯 REGISTER'DA DA JWT CLAIMS - Session bilgileri eklendi
-    const payload = {
-      username: newUser.username,
-      sub: newUser.id,
-      role: newUser.role,
-      sessionId: sessionId,
-      loginTime: loginTime.toISOString(),
-      lastActivity: loginTime.toISOString(),
-    };
-
     return {
-      access_token: this.jwtService.sign(payload),
+      sessionId,
       user: {
         id: newUser.id,
         username: newUser.username,
         role: newUser.role,
-        sessionId: sessionId,
-        loginTime: loginTime,
       },
+      message: 'User registered successfully',
     };
   }
 
-  // ✨ Logout methodu
-  async logout(session: any): Promise<{ message: string }> {
-    return new Promise((resolve, reject) => {
-      session.destroy((err: any) => {
-        if (err) {
-          reject(new UnauthorizedException('Error occurred during logout'));
-        } else {
-          resolve({ message: 'Successfully logged out' });
-        }
-      });
-    });
+  getSession(sessionId: string) {
+    const session = this.sessionStore.get(sessionId);
+    if (!session) {
+      throw new UnauthorizedException('Session not found');
+    }
+    return session;
   }
 
-  // ✨ Session doğrulama
-  async validateSession(session: any) {
-    if (!session || !session.userId) {
-      throw new UnauthorizedException('Valid session not found');
-    }
-
-    const user = await this.usersService.findById(session.userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    // Son aktivite zamanını güncelle
-    session.lastActivity = new Date();
-    return {
-      userId: session.userId,
-      username: session.username,
-      role: session.role,
-      sessionId: session.sessionId,
-      loginTime: session.loginTime,
-      lastActivity: session.lastActivity,
-    };
+  getUserSessions(userId: number) {
+    return this.sessionStore.getByUserId(userId);
   }
 
-  // ✅ YENİ: User ID ile session bilgisi getir
+  logoutAllDevices(userId: number) {
+    const count = this.sessionStore.deleteByUserId(userId);
+    return { message: `${count} session(s) terminated` };
+  }
+
+  getAllSessions() {
+    return this.sessionStore.getAll();
+  }
+
+  logoutSession(sessionId: string) {
+    const deleted = this.sessionStore.delete(sessionId);
+    if (!deleted) {
+      throw new UnauthorizedException('Session not found');
+    }
+    return { message: `Session ${sessionId} terminated` };
+  }
+
   async getSessionByUserId(userId: number) {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    const sessions = this.sessionStore.getByUserId(userId);
+    if (sessions.length === 0) {
+      const user = await this.usersService.findById(userId);
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+      return { message: 'No active sessions', userId: user.id };
     }
-
-    // Session bilgilerini döndür
-    // Not: Gerçek uygulamada Redis veya session store'dan çekilmeli
-    return {
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      message: 'Session info retrieved (from database, not active session)',
-    };
+    return sessions;
   }
 
-  // ✅ YENİ:  Kullanıcının tüm aktif session'larını getir
-  async getSessionsByUserId(userId: number): Promise<any[]> {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+  async getSessionsByUserId(userId: number) {
+    return this.sessionStore.getByUserId(userId);
+  }
 
-    // Not: Gerçek uygulamada Redis'ten veya session store'dan çekilmeli
-    // Şimdilik mock data dönüyoruz
-    return [
-      {
-        sessionId: this.generateSessionId(),
-        userId: user.id,
-        username: user.username,
-        role: user.role,
-        loginTime: new Date(),
-        lastActivity: new Date(),
-        userAgent: 'Mock Browser',
-        ipAddress: '127.0.0.1',
+  async logoutAllSessions(userId: number) {
+    const count = this.sessionStore.deleteByUserId(userId);
+    return { message: `${count} session(s) terminated for user ${userId}` };
+  }
+
+  startSessionCleanup() {
+    setInterval(
+      () => {
+        this.sessionStore.cleanExpired(1800000);
       },
-    ];
-  }
-
-  // ✅ YENİ: Session ID ile session bilgisi getir
-  async getSessionById(sessionId: string): Promise<any> {
-    // Not: Gerçek uygulamada Redis'ten veya session store'dan çekilmeli
-    return {
-      sessionId: sessionId,
-      userId: null,
-      message: 'Session lookup not implemented (requires Redis/session store)',
-    };
-  }
-
-  // ✅ YENİ: Belirli bir session'ı sonlandır
-  async logoutSession(sessionId: string): Promise<{ message: string }> {
-    // Not: Gerçek uygulamada Redis'ten veya session store'dan silinmeli
-    return {
-      message: `Session ${sessionId} has been terminated`,
-    };
-  }
-
-  // ✅ YENİ: User ID'ye ait tüm session'ları sonlandır
-  async logoutAllSessions(userId: number): Promise<{ message: string }> {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    // Not: Gerçek uygulamada Redis'teki tüm session'lar silinmeli
-    return {
-      message: `All sessions for user ${userId} have been terminated`,
-    };
-  }
-
-  // ✅ Session ID oluşturma helper methodu
-  private generateSessionId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      15 * 60 * 1000,
+    );
   }
 }

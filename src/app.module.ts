@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { User } from './users/entities/user.entity';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { SessionStore } from './auth/session.store';
 
 @Module({
   imports: [
@@ -20,13 +21,13 @@ import { RolesGuard } from './auth/guards/roles.guard';
       port: 1111,
       username: 'username',
       password: 'password',
-      database: 'neondb',
+      database: 'database',
       entities: [User],
       synchronize: true,
       ssl: {
         rejectUnauthorized: false,
       },
-      logging: true,
+      logging: false,
     }),
     AuthModule,
     UsersModule,
@@ -34,6 +35,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
   controllers: [AppController],
   providers: [
     AppService,
+    SessionStore,
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
