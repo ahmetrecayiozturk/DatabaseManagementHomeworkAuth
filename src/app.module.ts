@@ -1,38 +1,45 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { SandboxModule } from './sandbox/sandbox.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { TasksModule } from './tasks/tasks.module';
-import { CreatorModule } from './creator/creator.module';
-import { GameModule } from './game/game.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { User } from './users/entities/user.entity';
+import { RolesGuard } from './auth/guards/roles.guard';
+import { SessionStore } from './auth/session.store';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-    isGlobal: true,
+      isGlobal: true,
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'postgres'),
-        password: configService.get('DB_PASSWORD', 'postgres'),
-        database: configService.get('DB_DATABASE', 'sql_story_game'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('DB_SYNCHRONIZE', 'false') === 'true',
-        logging: configService.get('DB_LOGGING', 'false') === 'true',
-      }),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'host',
+      port: 1111,
+      username: 'username',
+      password: 'password',
+      database: 'database',
+      entities: [User],
+      synchronize: true,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      logging: false,
     }),
-    SandboxModule,
-    TasksModule,
-    CreatorModule,
-    GameModule],
+    AuthModule,
+    UsersModule,
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    SessionStore,
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}
