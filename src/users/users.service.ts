@@ -42,4 +42,15 @@ export class UsersService {
   async findOneWithPassword(username: string): Promise<User | undefined> {
     return this.usersRepository.findOne({ where: { username } });
   }
+
+  async findAll(): Promise<User[]> {
+    return this.usersRepository.find();
+  }
+
+  async updateRole(userId: number, role: 'admin' | 'user'): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+    user.role = role;
+    return this.usersRepository.save(user);
+  }
 }

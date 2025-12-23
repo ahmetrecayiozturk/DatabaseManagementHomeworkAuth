@@ -17,11 +17,11 @@ import { SessionStore } from './auth/session.store';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'host',
-      port: 1111,
-      username: 'username',
-      password: 'password',
-      database: 'database',
+      host: 'ep-little-shape-a4vezfap-pooler.us-east-1.aws.neon.tech',
+      port: 5432,
+      username: 'neondb_owner',
+      password: 'npg_JpMy9kB1TUFv',
+      database: 'neondb',
       entities: [User],
       synchronize: true,
       ssl: {
